@@ -19,6 +19,11 @@ jobs:
           mkdir www
           cp index.html *.js *.css *.woff *.wasm www/
       - run: npm install
+      - name: Add Capacitor JS runtime to the web app
+        run: |
+          cp node_modules/@capacitor/core/dist/capacitor.js www/capacitor.js
+          sed -i 's#<script src="native.js"></script>#<script src="capacitor.js"></script><script src="native.js"></script>#' www/index.html
+          grep -c 'src="capacitor.js"' www/index.html
       - run: npx cap add android
       - name: Add native "Save as" plugin
         run: |
