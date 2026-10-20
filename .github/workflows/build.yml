@@ -23,7 +23,7 @@ jobs:
       - name: Add native "Save as" plugin
         run: |
           D=android/app/src/main/java/com/inkdown/dj
-          cp native-android/SaveFilePlugin.java $D/SaveFilePlugin.java
+          cp SaveFilePlugin.java $D/SaveFilePlugin.java
           cat > $D/MainActivity.java <<'JAVA'
           package com.inkdown.dj;
           import android.os.Bundle;
