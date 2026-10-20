@@ -25,10 +25,13 @@ jobs:
           sed -i 's#<script src="native.js"></script>#<script src="capacitor.js"></script><script src="native.js"></script>#' www/index.html
           grep -c 'src="capacitor.js"' www/index.html
       - run: npx cap add android
-      - name: Add native "Save as" plugin
+      - name: Add native plugins (Save as + Handwriting)
         run: |
           D=android/app/src/main/java/com/inkdown/dj
           cp SaveFilePlugin.java $D/SaveFilePlugin.java
+          cp HandwritingPlugin.java $D/HandwritingPlugin.java
+          sed -i '/^dependencies {/a\    implementation "com.google.mlkit:digital-ink-recognition:18.1.0"' android/app/build.gradle
+          grep -n "digital-ink-recognition" android/app/build.gradle
           cat > $D/MainActivity.java <<'JAVA'
           package com.inkdown.dj;
           import android.os.Bundle;
@@ -36,6 +39,7 @@ jobs:
           public class MainActivity extends BridgeActivity {
             @Override public void onCreate(Bundle savedInstanceState) {
               registerPlugin(SaveFilePlugin.class);
+              registerPlugin(HandwritingPlugin.class);
               super.onCreate(savedInstanceState);
             }
           }
