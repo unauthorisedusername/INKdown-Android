@@ -1661,7 +1661,7 @@ setTimeout(hide,6000);setTimeout(leave,12000);
         <output id="sensV"></output></div>
       <div class="prow"><span class="pl">Friction</span>
         <button class="pm" data-for="fric" data-dir="-1" data-step="0.05" aria-label="Decrease">&minus;</button>
-        <input type="range" id="fric" min="0" max="0.95" step="0.01" value="0">
+        <input type="range" id="fric" min="0" max="0.95" step="0.01" value="0.82">
         <button class="pm" data-for="fric" data-dir="1" data-step="0.05" aria-label="Increase">+</button>
         <output id="fricV"></output></div>
     </div>
@@ -4402,28 +4402,18 @@ function ikBegin(e,q,cal){
   lctx.strokeStyle=curColor; lctx.fillStyle=curColor; lctx.lineCap='round'; lctx.lineJoin='round';
   lctx.beginPath(); lctx.arc(q.x,q.y,hw*ikK(sp)*(cal?0.6:1)/2,0,Math.PI*2); lctx.fill();
 }
-/* Rate-independent smoothing: the low-pass below runs once per sample, so with sparse pointer events (or a busy WebView)
-   long gaps turned into angular "snappy" segments. Every gap is now cut into <=IK_STEP screen-px sub-samples first,
-   so the pen feels the same no matter how many events Android delivers. */
-const IK_STEP=2.5;
-function ikSample(qx,qy,ps){
-  ik.sp+=(ps-ik.sp)*IK_PSMOOTH; const k=ikK(ik.sp);
-  const d=Math.hypot(qx-ik.sx,qy-ik.sy)*ik.zs, a=Math.min(1,IK_SMOOTH_MIN+d/IK_SMOOTH_SPEED);
-  const ox=ik.sx, oy=ik.sy;
-  ik.sx+=(qx-ik.sx)*a; ik.sy+=(qy-ik.sy)*a; ik.rx=qx; ik.ry=qy;
-  if(ik.cal&&Math.hypot(ik.sx-ox,ik.sy-oy)*ik.zs>0.4){ const f=IK_DMIN+(1-IK_DMIN)*Math.abs(Math.sin(Math.atan2(ik.sy-oy,ik.sx-ox)-IK_NIB)); ik.df+=(f-ik.df)*0.35; }
-  const cx=(ik.lx+ik.sx)/2, cy=(ik.ly+ik.sy)/2, w=ik.hw*k*ik.df;
-  ikSeg(ik.mx,ik.my,ik.lx,ik.ly,cx,cy,w);
-  ik.lx=ik.sx; ik.ly=ik.sy; ik.mx=cx; ik.my=cy; ik.moved=true;
-  cur.pts.push({x:ik.sx,y:ik.sy,p:ik.cal?ikP(w,ik.hw):Math.pow(ik.sp,1.25)});
-}
 function ikMove(evs){
   for(const ev of evs){
     const ps=ev.pointerType==='mouse'?1:(ev.pressure||ik.sp);
-    const qx=(ev.clientX-ik.rl)*gp.w/ik.rw, qy=(ev.clientY-ik.rt)*gp.h/ik.rh;
-    const gap=Math.hypot(qx-ik.rx,qy-ik.ry)*ik.zs, n=Math.min(48,Math.ceil(gap/IK_STEP));
-    if(n>1){ const px=ik.rx, py=ik.ry; for(let i=1;i<n;i++){ const t=i/n; ikSample(px+(qx-px)*t,py+(qy-py)*t,ps); } }
-    ikSample(qx,qy,ps);
+    ik.sp+=(ps-ik.sp)*IK_PSMOOTH; const k=ikK(ik.sp), q={x:(ev.clientX-ik.rl)*gp.w/ik.rw,y:(ev.clientY-ik.rt)*gp.h/ik.rh};
+    const d=Math.hypot(q.x-ik.sx,q.y-ik.sy)*ik.zs, a=Math.min(1,IK_SMOOTH_MIN+d/IK_SMOOTH_SPEED);
+    const ox=ik.sx, oy=ik.sy;
+    ik.sx+=(q.x-ik.sx)*a; ik.sy+=(q.y-ik.sy)*a; ik.rx=q.x; ik.ry=q.y;
+    if(ik.cal&&Math.hypot(ik.sx-ox,ik.sy-oy)*ik.zs>0.4){ const f=IK_DMIN+(1-IK_DMIN)*Math.abs(Math.sin(Math.atan2(ik.sy-oy,ik.sx-ox)-IK_NIB)); ik.df+=(f-ik.df)*0.35; }
+    const cx=(ik.lx+ik.sx)/2, cy=(ik.ly+ik.sy)/2, w=ik.hw*k*ik.df;
+    ikSeg(ik.mx,ik.my,ik.lx,ik.ly,cx,cy,w);
+    ik.lx=ik.sx; ik.ly=ik.sy; ik.mx=cx; ik.my=cy; ik.moved=true;
+    cur.pts.push({x:ik.sx,y:ik.sy,p:ik.cal?ikP(w,ik.hw):Math.pow(ik.sp,1.25)});
   }
 }
 /* s6zb: low-latency input. pointerrawupdate feeds the ink pen straight away (pointermove then skips it);
@@ -9698,8 +9688,8 @@ setMode('pen');
    --------------------------------------------------------------- */
 (function(){
   const KEY='stylusInk.toolbar.v1';
-  const DEF={pen:{presets:[{w:1,sens:0.6,fric:0},{w:5,sens:0.6,fric:0},{w:10,sens:0.6,fric:0}],sel:0},
-             hl:{presets:[{w:10,sens:0.6,fric:0},{w:16,sens:0.6,fric:0},{w:28,sens:0.6,fric:0}],sel:1},er:10,ar:18};
+  const DEF={pen:{presets:[{w:1,sens:0.6,fric:0.82},{w:5,sens:0.6,fric:0.82},{w:10,sens:0.6,fric:0.82}],sel:0},
+             hl:{presets:[{w:10,sens:0.6,fric:0.82},{w:16,sens:0.6,fric:0.82},{w:28,sens:0.6,fric:0.82}],sel:1},er:10,ar:18};
   const LIM={pen:[0.5,20,0.1],hl:[2,60,0.5]}; // thickness slider range / step per profile
   const P=()=>S[profile];
   const S=JSON.parse(JSON.stringify(DEF));
@@ -9715,6 +9705,10 @@ setMode('pen');
         }
         S[k].sel=Math.round(num(s.sel,0,2,DEF[k].sel));
       };
+      if(!localStorage.getItem('inkdown.fric82')){ // earlier Android builds saved friction 0 (raw, jittery pen); restore the original 0.82 once
+        for(const k of ['pen','hl']){ const t=k==='pen'?(o.pen||o):o.hl; if(t&&Array.isArray(t.presets)) for(const p of t.presets) if(p&&p.fric===0) p.fric=0.82; }
+        localStorage.setItem('inkdown.fric82','1');
+      }
       loadP('pen',o.pen||o); loadP('hl',o.hl); // older saves (flat presets/sel) are the pen profile
       S.er=num(o.er,2,60,DEF.er); S.ar=num(o.ar,5,60,DEF.ar);
     }
