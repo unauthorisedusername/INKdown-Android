@@ -5,20 +5,28 @@
   var App=C.registerPlugin('App'), SB=C.registerPlugin('StatusBar');
 
 
-  /* ---------- file export: write to app cache, then open Android's share/save sheet ---------- */
-  var FS=C.registerPlugin('Filesystem'), SH=C.registerPlugin('Share');
-  function say(m){ var e=document.getElementById('st'); if(e) e.textContent=m; }
+  /* ---------- file export: write to app cache, then Android "Save as" dialog (SAF); Share sheet as fallback ---------- */
+  var FS=C.registerPlugin('Filesystem'), SH=C.registerPlugin('Share'), SF=C.registerPlugin('SaveFile');
+  function say(m,err){ toast(m, err?6000:2500); }   /* visible toast (old code wrote to hidden #st) */
   function toB64(blob){ return new Promise(function(res,rej){
     var r=new FileReader(); r.onload=function(){ res(String(r.result).split(',')[1]||''); }; r.onerror=function(){ rej(r.error||new Error('read failed')); }; r.readAsDataURL(blob); }); }
+  function mimeOf(n){ n=n.toLowerCase(); return /\.pdf$/.test(n)?'application/pdf':/\.zip$/.test(n)?'application/zip':'application/octet-stream'; }
   window.__nativeSave=async function(blob,name){
     try{
       name=String(name||'file').replace(/[\\/:*?"<>|]+/g,'_');
       say('Preparing '+name+'...');
       var w=await FS.writeFile({path:name,data:await toB64(blob),directory:'CACHE'});
-      say('Choose where to save '+name);
-      try{ await SH.share({title:name,url:w.uri,dialogTitle:'Save or share '+name}); say('Ready: '+name); }
-      catch(e){ if(/cancel/i.test(String(e&&e.message||e))) say('Export cancelled'); else throw e; }
-    }catch(e){ console.error(e); say('Export failed: '+(e&&e.message||e)); }
+      try{
+        await SF.saveAs({path:w.uri,name:name,mime:mimeOf(name)});
+        say('Saved: '+name);
+      }catch(e1){
+        var m1=String(e1&&e1.message||e1);
+        if(/cancel/i.test(m1)){ say('Save cancelled'); return; }
+        console.warn('SaveFile failed, using Share:',m1);
+        try{ await SH.share({title:name,url:w.uri,dialogTitle:'Save or share '+name}); }
+        catch(e2){ if(/cancel/i.test(String(e2&&e2.message||e2))) say('Export cancelled'); else throw e2; }
+      }
+    }catch(e){ console.error(e); say('Export failed: '+(e&&e.message||e),true); }
   };
 
   /* ---------- status bar colour follows the page ---------- */
@@ -45,10 +53,10 @@
   setTimeout(syncBar,300); setTimeout(syncBar,2000);
 
   /* ---------- back button ---------- */
-  function toast(msg){
+  function toast(msg,ms){
     var d=document.createElement('div'); d.textContent=msg;
     d.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:rgba(30,30,30,.92);color:#fff;padding:9px 16px;border-radius:20px;font:14px sans-serif;z-index:2147483647;pointer-events:none';
-    document.body.appendChild(d); setTimeout(function(){ d.remove(); },1800);
+    document.body.appendChild(d); setTimeout(function(){ d.remove(); },ms||1800);
   }
   function findOverlays(){
     var out=[], all=document.body.getElementsByTagName('*');
