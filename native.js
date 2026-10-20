@@ -1,4 +1,16 @@
 /* Android-only helpers (back button + status bar). Does nothing in a normal browser. */
+/* ---------- handwriting recognition (ML Kit) bridge ---------- */
+(function(){
+  window.__inkRecognize=async function(strokes,lang,onStatus){
+    var C=window.Capacitor;
+    if(!C||!C.registerPlugin||!(C.isNativePlatform&&C.isNativePlatform())) throw new Error('Handwriting recognition works only in the Android app');
+    var HW=C.registerPlugin('Handwriting'); lang=lang||'en-US';
+    try{ var st=await HW.status({lang:lang}); if(!st.downloaded&&onStatus) onStatus('Downloading handwriting model (one time, needs internet)...'); }catch(e){}
+    var r=await HW.recognize({strokes:strokes,lang:lang});
+    return (r&&r.candidates)||[];
+  };
+})();
+
 /* ---------- file export (defined always; checks Capacitor at call time) ---------- */
 (function(){
   function toast(msg,ms){
