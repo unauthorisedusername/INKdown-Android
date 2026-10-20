@@ -1,0 +1,8 @@
+{
+  "appId": "com.inkdown.dj",
+  "appName": "INKdown",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
