@@ -1,18 +1,20 @@
 /* Android-only helpers (back button + status bar). Does nothing in a normal browser. */
+/* ---------- file export (defined always; checks Capacitor at call time) ---------- */
 (function(){
-  var C=window.Capacitor;
-  if(!C||!C.isNativePlatform||!C.isNativePlatform()) return;
-  var App=C.registerPlugin('App'), SB=C.registerPlugin('StatusBar');
-
-
-  /* ---------- file export: write to app cache, then Android "Save as" dialog (SAF); Share sheet as fallback ---------- */
-  var FS=C.registerPlugin('Filesystem'), SH=C.registerPlugin('Share'), SF=C.registerPlugin('SaveFile');
-  function say(m,err){ toast(m, err?6000:2500); }   /* visible toast (old code wrote to hidden #st) */
+  function toast(msg,ms){
+    var d=document.createElement('div'); d.textContent=msg;
+    d.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);max-width:88vw;background:rgba(30,30,30,.95);color:#fff;padding:10px 16px;border-radius:20px;font:14px sans-serif;z-index:2147483647;pointer-events:none';
+    (document.body||document.documentElement).appendChild(d); setTimeout(function(){ d.remove(); },ms||2500);
+  }
+  function say(m,err){ toast(m, err?7000:2500); }
   function toB64(blob){ return new Promise(function(res,rej){
     var r=new FileReader(); r.onload=function(){ res(String(r.result).split(',')[1]||''); }; r.onerror=function(){ rej(r.error||new Error('read failed')); }; r.readAsDataURL(blob); }); }
   function mimeOf(n){ n=n.toLowerCase(); return /\.pdf$/.test(n)?'application/pdf':/\.zip$/.test(n)?'application/zip':'application/octet-stream'; }
   window.__nativeSave=async function(blob,name){
+    var C=window.Capacitor;
+    if(!C||!C.registerPlugin){ say('Native bridge missing (window.Capacitor not found)',true); return; }
     try{
+      var FS=C.registerPlugin('Filesystem'), SH=C.registerPlugin('Share'), SF=C.registerPlugin('SaveFile');
       name=String(name||'file').replace(/[\\/:*?"<>|]+/g,'_');
       say('Preparing '+name+'...');
       var w=await FS.writeFile({path:name,data:await toB64(blob),directory:'CACHE'});
@@ -22,12 +24,19 @@
       }catch(e1){
         var m1=String(e1&&e1.message||e1);
         if(/cancel/i.test(m1)){ say('Save cancelled'); return; }
-        console.warn('SaveFile failed, using Share:',m1);
+        say('Save dialog unavailable ('+m1+'), opening share...',true);
         try{ await SH.share({title:name,url:w.uri,dialogTitle:'Save or share '+name}); }
         catch(e2){ if(/cancel/i.test(String(e2&&e2.message||e2))) say('Export cancelled'); else throw e2; }
       }
     }catch(e){ console.error(e); say('Export failed: '+(e&&e.message||e),true); }
   };
+})();
+
+(function(){
+  var C=window.Capacitor;
+  if(!C||!C.isNativePlatform||!C.isNativePlatform()) return;
+  var App=C.registerPlugin('App'), SB=C.registerPlugin('StatusBar');
+
 
   /* ---------- status bar colour follows the page ---------- */
   function rgb(c){ var m=(c||'').match(/[\d.]+/g); return m?m.map(Number):null; }
