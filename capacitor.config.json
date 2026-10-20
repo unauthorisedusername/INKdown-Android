@@ -2,12 +2,15 @@
   "appId": "com.inkdown.dj",
   "appName": "INKdown",
   "webDir": "www",
+  "backgroundColor": "#111318",
   "server": {
     "androidScheme": "https"
   },
   "plugins": {
     "StatusBar": {
-      "overlaysWebContent": false
+      "overlaysWebContent": false,
+      "backgroundColor": "#111318",
+      "style": "DARK"
     }
   }
 }

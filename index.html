@@ -1661,7 +1661,7 @@ setTimeout(hide,6000);setTimeout(leave,12000);
         <output id="sensV"></output></div>
       <div class="prow"><span class="pl">Friction</span>
         <button class="pm" data-for="fric" data-dir="-1" data-step="0.05" aria-label="Decrease">&minus;</button>
-        <input type="range" id="fric" min="0" max="0.95" step="0.01" value="0.82">
+        <input type="range" id="fric" min="0" max="0.95" step="0.01" value="0">
         <button class="pm" data-for="fric" data-dir="1" data-step="0.05" aria-label="Increase">+</button>
         <output id="fricV"></output></div>
     </div>
@@ -1734,7 +1734,7 @@ setTimeout(hide,6000);setTimeout(leave,12000);
         <div class="ptitle">Smart ink</div>
         <button id="snapBtn" class="mi on" aria-label="Shape snap"><svg class="ic"><use href="#i-shape"/></svg>Shape snap<span class="mt"></span></button>
         <button id="eshBtn" class="mi on" aria-label="Erase shapes"><svg class="ic"><use href="#i-shape"/></svg>Erase shapes<span class="mt"></span></button>
-        <button id="scribBtn" class="mi on" aria-label="Scribble to erase"><svg class="ic"><use href="#i-scrib"/></svg>Scribble to erase<span class="mt"></span></button>
+        <button id="scribBtn" class="mi" aria-label="Scribble to erase"><svg class="ic"><use href="#i-scrib"/></svg>Scribble to erase<span class="mt"></span></button>
         <button id="arrBtn" class="mi on" aria-label="Auto arrowhead"><svg class="ic"><use href="#i-arrow"/></svg>Auto arrowhead<span class="mt"></span></button>
         <div class="prow"><span class="pl">Min length</span>
           <button class="pm" data-for="arrMin" data-dir="-1" data-step="10" aria-label="Decrease">&minus;</button>
@@ -9446,8 +9446,8 @@ function snapShapeImpl(raw){
    deletes every pen stroke it touches (one undo step). The scribble itself is not kept.
    If it touches nothing it stays as normal ink. Highlighter strokes are never erased this way.
    --------------------------------------------------------------- */
-let scribOn=true;
-try{ if(localStorage.getItem('inkdown.scrib')==='0') scribOn=false; }catch(_){}
+let scribOn=false;
+try{ if(localStorage.getItem('inkdown.scrib')==='1') scribOn=true; }catch(_){}
 function updScribUI(){ $('scribBtn').classList.toggle('on',scribOn); $('scribBtn').dataset.tip='Scribble to erase: '+(scribOn?'on':'off'); }
 $('scribBtn').onclick=()=>{
   scribOn=!scribOn;
@@ -9591,8 +9591,8 @@ setMode('pen');
    --------------------------------------------------------------- */
 (function(){
   const KEY='stylusInk.toolbar.v1';
-  const DEF={pen:{presets:[{w:1,sens:0.6,fric:0.82},{w:5,sens:0.6,fric:0.82},{w:10,sens:0.6,fric:0.82}],sel:0},
-             hl:{presets:[{w:10,sens:0.6,fric:0.82},{w:16,sens:0.6,fric:0.82},{w:28,sens:0.6,fric:0.82}],sel:1},er:10,ar:18};
+  const DEF={pen:{presets:[{w:1,sens:0.6,fric:0},{w:5,sens:0.6,fric:0},{w:10,sens:0.6,fric:0}],sel:0},
+             hl:{presets:[{w:10,sens:0.6,fric:0},{w:16,sens:0.6,fric:0},{w:28,sens:0.6,fric:0}],sel:1},er:10,ar:18};
   const LIM={pen:[0.5,20,0.1],hl:[2,60,0.5]}; // thickness slider range / step per profile
   const P=()=>S[profile];
   const S=JSON.parse(JSON.stringify(DEF));

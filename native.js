@@ -9,7 +9,9 @@
   function hex(n){ n=Math.max(0,Math.min(255,Math.round(n))); return (n<16?'0':'')+n.toString(16); }
   function syncBar(){
     try{
-      var c=rgb(getComputedStyle(document.body).backgroundColor);
+      var cs=getComputedStyle(document.documentElement), v=(cs.getPropertyValue('--bg')||'').trim(), c=null;
+      if(/^#[0-9a-f]{6}$/i.test(v)) c=[parseInt(v.substr(1,2),16),parseInt(v.substr(3,2),16),parseInt(v.substr(5,2),16)];
+      if(!c) c=rgb(getComputedStyle(document.body).backgroundColor);
       if(!c||(c.length>3&&c[3]===0)) c=rgb(getComputedStyle(document.documentElement).backgroundColor);
       if(!c||(c.length>3&&c[3]===0)) c=[255,255,255];
       var lum=(0.299*c[0]+0.587*c[1]+0.114*c[2])/255;
@@ -37,9 +39,9 @@
       var el=all[i], tag=el.tagName;
       if(tag==='SCRIPT'||tag==='STYLE'||tag==='CANVAS') continue;
       var s=getComputedStyle(el);
-      if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||s.pointerEvents==='none') continue;
+      if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||s.pointerEvents==='none'||parseFloat(s.opacity)<0.05) continue;
       var z=parseInt(s.zIndex,10); if(!(z>=60)) continue;
-      var r=el.getBoundingClientRect(); if(r.width<20||r.height<20) continue;
+      var r=el.getBoundingClientRect(); if(r.width<20||r.height<20||r.right<=0||r.bottom<=0||r.left>=innerWidth||r.top>=innerHeight) continue;
       var full=r.width>=innerWidth*0.85&&r.height>=innerHeight*0.85;
       var pop=el.matches('.menu,.clmenu,[role=dialog],[role=menu]');
       if(full||pop) out.push({el:el,z:z,full:full,i:i});
@@ -47,13 +49,15 @@
     out.sort(function(a,b){ return (b.z-a.z)||(b.i-a.i); });
     return out;
   }
-  var lastEl=null;
+  var base=[], tried=[];
+  setTimeout(function(){ base=findOverlays().map(function(i){ return i.el; }); },4000);   /* always-visible fixed layers: ignore */
   function closeTop(){
-    var list=findOverlays();
+    var list=findOverlays().filter(function(i){ return base.indexOf(i.el)<0; });
+    tried=tried.filter(function(e){ return list.some(function(i){ return i.el===e; }); });
     for(var k=0;k<list.length;k++){
       var it=list[k], el=it.el;
-      if(el===lastEl) continue;            /* already tried, it stayed open: skip it */
-      lastEl=el; setTimeout(function(){ lastEl=null; },1500);
+      if(tried.indexOf(el)>=0) continue;   /* tried once and it stayed open: skip it */
+      tried.push(el);
       var btn=el.querySelector('[data-close],[aria-label*="lose" i],.close,.x,.cancel,[id$="Close"],[id$="Cancel"],[id$="close"],[id$="cancel"]');
       if(btn){ btn.click(); return true; }
       if(it.full){ el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true})); return true; }
