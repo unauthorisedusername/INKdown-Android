@@ -4702,6 +4702,100 @@ function v2Fmt(box,btn){ // s6zo: brush button = show / hide the formatting bar 
   box.fmt=!box.fmt; if(btn) btn.classList.toggle('on',box.fmt);
   if(box.editor){ if(box.fmt) V2TB.show(box); else{ V2TB.hide(); if(box.pop) box.pop.classList.remove('open'); } }
 }
+/* ===== Handwriting recognition (Android app only, Google ML Kit) =====
+   Lasso ink -> Recognize -> popup (editable text + alternatives) -> Insert = new text box under the ink (ink is kept). */
+const HW_ICON=SB_SVG('<path d="M2.5 19 7 5l4.5 14M4.5 14h5"/><circle cx="17" cy="15.5" r="3"/><path d="M20 12.5v7"/>');
+const HW_LANG='en-US';
+let hwPop=null;
+function hwToast(msg,ms){
+  const d=document.createElement('div'); d.textContent=msg;
+  d.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);max-width:88vw;background:rgba(30,30,30,.95);color:#fff;padding:10px 16px;border-radius:20px;font:14px sans-serif;z-index:2147483647;pointer-events:none;text-align:center';
+  document.body.appendChild(d); setTimeout(()=>d.remove(),ms||2600);
+  return d;
+}
+function hwLines(strokes){ // group strokes into text lines by vertical overlap; keeps drawing order inside a line
+  const info=strokes.map(sd=>{ let y0=1e9,y1=-1e9; for(const p of sd.pts){ if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; } return {sd,y0,y1}; });
+  const lines=[];
+  for(const s of info){
+    const h=Math.max(1,s.y1-s.y0); let best=null;
+    for(const L of lines){
+      const ov=Math.min(s.y1,L.y1)-Math.max(s.y0,L.y0);
+      if(ov>=0.3*Math.min(h,Math.max(1,L.y1-L.y0))){ best=L; break; }
+    }
+    if(best){ best.s.push(s.sd); best.y0=Math.min(best.y0,s.y0); best.y1=Math.max(best.y1,s.y1); }
+    else lines.push({s:[s.sd],y0:s.y0,y1:s.y1});
+  }
+  lines.sort((a,b)=>a.y0-b.y0);
+  return lines.map(L=>L.s);
+}
+function hwClose(){ if(hwPop){ hwPop.remove(); hwPop=null; } }
+async function hwRecognize(){
+  const s=lsSel; if(!s||!s.items.length) return;
+  const src=s.items.map(i=>i.sd).filter(sd=>!sd.alpha&&sd.pts&&sd.pts.length);
+  if(!src.length){ hwToast('Select pen strokes to recognize'); return; }
+  hwClose();
+  const pg=s.pg, bb={...s.box};
+  const groups=hwLines(src);
+  const wait=hwToast('Recognizing…',60000);
+  try{
+    const results=[]; let t=0;
+    for(const g of groups){
+      const strokes=g.map(sd=>{ t+=250; return sd.pts.map(p=>({x:+p.x.toFixed(1),y:+p.y.toFixed(1),t:(t+=8)})); });
+      const c=await window.__inkRecognize(strokes,HW_LANG,m=>hwToast(m,5000));
+      results.push(c);
+    }
+    wait.remove();
+    const top=results.map(c=>c[0]||'');
+    if(!top.join('').trim()){ hwToast('Nothing recognized'); return; }
+    hwPopup(pg,bb,top.join('\n'),groups.length===1?results[0].slice(0,4):[]);
+  }catch(e){
+    wait.remove();
+    hwToast('Recognition failed: '+((e&&e.message)||e),7000);
+  }
+}
+function hwPopup(pg,bb,text,alts){
+  if(!document.getElementById('hwCss')){
+    const st=document.createElement('style'); st.id='hwCss';
+    st.textContent='#hwPop{position:fixed;z-index:2147483000;width:min(340px,92vw);box-sizing:border-box;background:#1b1f2a;color:#f3f4f6;border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:10px;box-shadow:0 8px 28px rgba(0,0,0,.45);font:14px sans-serif;touch-action:manipulation}'
+    +'#hwPop textarea{width:100%;box-sizing:border-box;min-height:64px;max-height:40vh;resize:vertical;background:#11141b;color:#f3f4f6;border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:8px;font:15px sans-serif;outline:none}'
+    +'#hwPop .hwc{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}'
+    +'#hwPop .hwc button{background:#2a3040;color:#f3f4f6;border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:5px 11px;font:13px sans-serif}'
+    +'#hwPop .hwb{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}'
+    +'#hwPop .hwb button{border:0;border-radius:10px;padding:8px 16px;font:600 14px sans-serif}'
+    +'#hwPop .hwx{background:#2a3040;color:#f3f4f6}#hwPop .hwi{background:#4f8cff;color:#fff}';
+    document.head.appendChild(st);
+  }
+  const d=document.createElement('div'); d.id='hwPop';
+  const ta=document.createElement('textarea'); ta.value=text; d.appendChild(ta);
+  if(alts&&alts.length>1){
+    const row=document.createElement('div'); row.className='hwc';
+    for(const a of alts){ const b=document.createElement('button'); b.type='button'; b.textContent=a; b.onclick=()=>{ ta.value=a; }; row.appendChild(b); }
+    d.appendChild(row);
+  }
+  const bar=document.createElement('div'); bar.className='hwb';
+  const bx=document.createElement('button'); bx.type='button'; bx.className='hwx'; bx.textContent='Cancel'; bx.onclick=hwClose;
+  const bi=document.createElement('button'); bi.type='button'; bi.className='hwi'; bi.textContent='Insert';
+  bi.onclick=()=>{ const v=ta.value.trim(); if(!v){ hwClose(); return; } hwClose(); hwInsert(pg,bb,v); };
+  bar.append(bx,bi); d.appendChild(bar);
+  for(const ev of ['pointerdown','touchstart','mousedown','click']) d.addEventListener(ev,e=>e.stopPropagation());
+  document.body.appendChild(d); hwPop=d;
+  // place it just below the selection (or above / at the bottom when there is no room)
+  const pr=pg.el.getBoundingClientRect(), k=pr.height/pg.h, selB=pr.top+bb.y1*k, selT=pr.top+bb.y0*k, hh=d.offsetHeight, ww=d.offsetWidth;
+  let top=selB+10; if(top+hh>innerHeight-8) top=selT-hh-10; if(top<8) top=Math.max(8,innerHeight-hh-16);
+  let left=pr.left+(bb.x0+bb.x1)/2*k-ww/2; left=Math.max(8,Math.min(innerWidth-ww-8,left));
+  d.style.top=top+'px'; d.style.left=left+'px';
+}
+function hwInsert(pg,bb,text){
+  const m=8, lines=text.split('\n').length, fs=16;
+  const w=Math.min(pg.w-2*m,Math.max(bb.x1-bb.x0,220));
+  const h=Math.min(pg.h-2*m,lines*fs*1.6+28);
+  const x=Math.max(m,Math.min(pg.w-w-m,bb.x0));
+  const y=Math.max(m,Math.min(pg.h-h-m,bb.y1+12));
+  const box=boxMake(pg,{kind:'text',x,y,w,h,rot:0,md:text,fs,ff:'sans',tc:null,eng:'v1'});
+  pg.history.push({t:'paste',items:[],boxes:[box]}); // undo removes the box
+  clearLassoSel();
+  hwToast('Inserted');
+}
 function sbBuild(bar,s){
   const box=s.kind==='single'?s.boxes[0]:null, cl=box&&box.el.classList, cropping=!!(cl&&cl.contains('cropping')), editing=!!(cl&&cl.contains('editing'));
   let h=box?'':'<span class="cnt"></span>';
@@ -4713,7 +4807,7 @@ function sbBuild(bar,s){
       else h+=sbBtn('ratio',TB_ICON.ratio,'Keep aspect ratio when dragging corners','',box.keepRatio?'on':'')+sbBtn('crop',TB_ICON.crop,'Crop');
       h+='<i class="sep"></i>';
     }
-    h+=sbBtn('rot',TB_ICON.rot,'Rotate','Rotate')+sbBtn('copy',SB_COPY,'Copy','Copy')+sbBtn('cut',SB_CUT,'Cut','Cut')+sbBtn('del',TB_ICON.del,'Delete','Delete','red')+'<i class="sep"></i>'+sbBtn('done',TB_ICON.ok,'Done — keep changes and deselect','','tick');
+    h+=(!box&&s.items.length?sbBtn('recog',HW_ICON,'Recognize handwriting'):'')+sbBtn('rot',TB_ICON.rot,'Rotate','Rotate')+sbBtn('copy',SB_COPY,'Copy','Copy')+sbBtn('cut',SB_CUT,'Cut','Cut')+sbBtn('del',TB_ICON.del,'Delete','Delete','red')+'<i class="sep"></i>'+sbBtn('done',TB_ICON.ok,'Done — keep changes and deselect','','tick');
   }
   bar.innerHTML=h;
   if(box){
@@ -4756,6 +4850,7 @@ function lsShowBox(dx=0,dy=0){
       if(a==='done'){ sbDone(b); return; }
       const via=cls=>{ const t=box&&box.tb&&box.tb.querySelector(cls); if(t) t.click(); }; // reuse the box's own edit / render / font / crop / ratio logic
       if(a==='copy') lsCopy(); else if(a==='cut') lsCut(); else if(a==='del') lsDelete();
+      else if(a==='recog') hwRecognize();
       else if(a==='rot'){ if(box){ if(box.endCrop) box.endCrop(true); boxRotToggle(box); b.classList.toggle('on',!!box.rotOff); } else lsRotToggle(); }
       else if(a==='raw'){ if(box&&box.engine==='v2') ENGINES.v2.toRaw(box); }
       else if(a==='edit') via('.fEdit'); else if(a==='render') via('.fRender'); else if(a==='font'){ if(box&&box.engine==='v2') v2Fmt(box,b); else via('.fFont'); }
