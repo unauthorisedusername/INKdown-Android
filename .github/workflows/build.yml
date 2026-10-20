@@ -20,6 +20,21 @@ jobs:
           cp index.html *.js *.css *.woff *.wasm www/
       - run: npm install
       - run: npx cap add android
+      - name: Add native "Save as" plugin
+        run: |
+          D=android/app/src/main/java/com/inkdown/dj
+          cp native-android/SaveFilePlugin.java $D/SaveFilePlugin.java
+          cat > $D/MainActivity.java <<'JAVA'
+          package com.inkdown.dj;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          public class MainActivity extends BridgeActivity {
+            @Override public void onCreate(Bundle savedInstanceState) {
+              registerPlugin(SaveFilePlugin.class);
+              super.onCreate(savedInstanceState);
+            }
+          }
+          JAVA
       - run: npx cap sync android
       - name: Build debug APK
         run: |
