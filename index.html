@@ -7397,6 +7397,7 @@ function showExportCard(){
   };
 }
 function saveBytes(bytes,name){
+  if(window.__nativeSave){ window.__nativeSave(new Blob([bytes],{type:'application/pdf'}),name); return; }
   const a=document.createElement('a'), u=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
   a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),10000);
 }
@@ -8162,8 +8163,9 @@ async function saveProject(){
     zip.file('manifest.json',JSON.stringify(man));
     $('st').textContent='Compressing…';
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6},mimeType:'application/octet-stream'});
-    const a=document.createElement('a'), u=URL.createObjectURL(blob);
-    a.href=u; a.download=name+'.inkdown'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),10000);
+    if(window.__nativeSave){ await window.__nativeSave(blob,name+'.inkdown'); }
+    else{ const a=document.createElement('a'), u=URL.createObjectURL(blob);
+    a.href=u; a.download=name+'.inkdown'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),10000); }
     $('st').textContent='Saved '+name+'.inkdown ('+(blob.size/1048576).toFixed(2)+' MB)';
   }catch(err){
     console.error(err); $('st').textContent='Save failed: '+(err&&err.message||err);
@@ -8647,7 +8649,7 @@ async function asAfterFlush(){   // after a successful save: ask the browser for
 
 // ---- V88: backup. A stored section -> .inkdown (same layout as Save project); a notebook -> one ZIP of its sections ----
 const safeName=t=>String(t).replace(/[\\/:*?"<>|]+/g,'_').trim()||'notes';
-function dlBlob(blob,name){ const a=document.createElement('a'), u=URL.createObjectURL(blob); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),10000); }
+function dlBlob(blob,name){ if(window.__nativeSave){ window.__nativeSave(blob,name); return; } const a=document.createElement('a'), u=URL.createObjectURL(blob); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),10000); }
 async function asSectionZip(sec){
   const zip=new JSZip(), man={app:'inkdown',version:1,name:safeName(sec.name),zoom:sec.zoom,active:sec.active,pdf:null,pages:[]};
   if(sec.pdf){ const a=await asTx(['assets'],'readonly',s=>s.get(sec.pdf.id)); if(a){ zip.file('pdf/source.pdf',a.blob,{compression:'STORE'}); man.pdf={file:'pdf/source.pdf',name:sec.pdf.name}; } }

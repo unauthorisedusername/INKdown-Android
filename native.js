@@ -4,6 +4,23 @@
   if(!C||!C.isNativePlatform||!C.isNativePlatform()) return;
   var App=C.registerPlugin('App'), SB=C.registerPlugin('StatusBar');
 
+
+  /* ---------- file export: write to app cache, then open Android's share/save sheet ---------- */
+  var FS=C.registerPlugin('Filesystem'), SH=C.registerPlugin('Share');
+  function say(m){ var e=document.getElementById('st'); if(e) e.textContent=m; }
+  function toB64(blob){ return new Promise(function(res,rej){
+    var r=new FileReader(); r.onload=function(){ res(String(r.result).split(',')[1]||''); }; r.onerror=function(){ rej(r.error||new Error('read failed')); }; r.readAsDataURL(blob); }); }
+  window.__nativeSave=async function(blob,name){
+    try{
+      name=String(name||'file').replace(/[\\/:*?"<>|]+/g,'_');
+      say('Preparing '+name+'...');
+      var w=await FS.writeFile({path:name,data:await toB64(blob),directory:'CACHE'});
+      say('Choose where to save '+name);
+      try{ await SH.share({title:name,url:w.uri,dialogTitle:'Save or share '+name}); say('Ready: '+name); }
+      catch(e){ if(/cancel/i.test(String(e&&e.message||e))) say('Export cancelled'); else throw e; }
+    }catch(e){ console.error(e); say('Export failed: '+(e&&e.message||e)); }
+  };
+
   /* ---------- status bar colour follows the page ---------- */
   function rgb(c){ var m=(c||'').match(/[\d.]+/g); return m?m.map(Number):null; }
   function hex(n){ n=Math.max(0,Math.min(255,Math.round(n))); return (n<16?'0':'')+n.toString(16); }
